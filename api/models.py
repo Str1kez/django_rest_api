@@ -24,4 +24,4 @@ class Doctor(AbstractPerson):
 class Patient(AbstractPerson):
     address = models.CharField(verbose_name='Адрес', max_length=100)
     district = models.IntegerField(verbose_name='Участок')
-    doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True)
+    doctor = models.ForeignKey(Doctor, on_delete=models.SET_NULL, null=True, related_name='patients')

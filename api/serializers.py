@@ -1,9 +1,29 @@
 from rest_framework import serializers
 
+from .models import Patient, Doctor
 
-class PatientSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=50)
-    address = serializers.CharField(max_length=100)
-    district = serializers.IntegerField()
-    phone_number = serializers.CharField(max_length=11, allow_null=True)
-    doctor = serializers.CharField(source='doctor.name')
+
+class DoctorSerializer(serializers.ModelSerializer):
+    class __PatientsSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = Patient
+            fields = ['name', 'address', 'district', 'phone_number']
+
+    patients = __PatientsSerializer(many=True)
+
+    class Meta:
+        model = Doctor
+        fields = ['name', 'post', 'phone_number', 'patients']
+
+
+class PatientSerializer(serializers.ModelSerializer):
+    class __DoctorSerializer(serializers.ModelSerializer):
+        class Meta:
+            model = Doctor
+            fields = ['name', 'post', 'phone_number']
+
+    doctor = __DoctorSerializer(read_only=True)
+
+    class Meta:
+        model = Patient
+        fields = ['name', 'address', 'district', 'phone_number', 'doctor']
