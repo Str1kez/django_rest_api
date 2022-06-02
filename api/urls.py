@@ -1,5 +1,5 @@
 from django.urls import path
-from views import GetPatientInfo
+from .views import GetPatientInfo
 
 app_name = 'api'
 
