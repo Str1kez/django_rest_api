@@ -1,15 +1,13 @@
-from django.shortcuts import render
-from django.http import JsonResponse
-import json
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.serializers import ModelSerializer
 
 # Create your views here.
+from models import Patient
 
 
-def home(request, *args, **kwargs):
-    response = dict(request.GET)
-    response['content_type'] = request.content_type
-    try:
-        response['data'] = json.loads(request.body)
-    except json.decoder.JSONDecodeError:
-        response['data'] = None
-    return JsonResponse(response)
+class GetPatientInfo(APIView):
+    def get(self, request):
+        patient = Patient.objects.first()
+        serializer = ModelSerializer(instance=patient)
+        return Response(serializer.data)

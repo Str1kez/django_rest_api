@@ -1,6 +1,8 @@
 from django.urls import path
-from .views import home
+from views import GetPatientInfo
+
+app_name = 'api'
 
 urlpatterns = [
-    path('', home, name='home'),
+    path('get/patient', GetPatientInfo.as_view(), name='get_patient'),
 ]
