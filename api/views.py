@@ -1,3 +1,5 @@
+from typing import Union, Type
+
 from rest_framework.exceptions import NotFound
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
@@ -9,24 +11,28 @@ from .models import Patient, Doctor
 from .serializers import PatientSerializer, DoctorSerializer
 
 
-class GetPatientInfo(APIView):
+class PersonAPIView(APIView):
     permission_classes = permissions.IsAuthenticated,
-    # serialaizer = - аналогично тому, что написано внизу
-    # model = Patient - для перестройки в наследование
+    serializer: Type[Union[PatientSerializer, DoctorSerializer]] = None
+    model: Union[Patient, Doctor] = None
 
     def get(self, request: Request, pk: int = None) -> Response:
-        patient_name = request.GET.get('name')
+        person_name = request.GET.get('name')
         if pk is not None:
-            patient = get_object_or_404(Patient, pk=pk)
-        elif patient_name:
-            patient = Patient.objects.filter(name=patient_name)
+            person = get_object_or_404(self.model, pk=pk)
+        elif person_name:
+            """
+            Можно было использовать icontains, но с SQLite работает non-ASCII в sensitive всегда
+            https://docs.djangoproject.com/en/4.0/ref/databases/#sqlite-string-matching
+            """
+            person = self.model.objects.filter(name=person_name)
         else:
-            patient = Patient.objects.all()
-        patient_serializer = PatientSerializer(instance=patient, many=pk is None)
-        return Response(patient_serializer.data)
+            person = self.model.objects.all()
+        person_serializer = self.serializer(instance=person, many=pk is None)
+        return Response(person_serializer.data)
 
     def post(self, request: Request) -> Response:
-        serialized_data = PatientSerializer(data=request.data)
+        serialized_data = self.serializer(data=request.data)
         if serialized_data.is_valid(raise_exception=True):
             serialized_data.save()
         return Response(request.data)
@@ -38,26 +44,11 @@ class GetPatientInfo(APIView):
         return Response(request.data)
 
 
-class GetDoctorInfo(APIView):
-    def get(self, request: Request, pk: int = None) -> Response:
-        doctor_name = request.query_params.get('name')
-        if pk is not None:
-            doctor = get_object_or_404(Doctor, pk=pk)
-        elif doctor_name:
-            doctor = Doctor.objects.filter(name=doctor_name)
-        else:
-            doctor = Doctor.objects.all()
-        doctor_serializer = DoctorSerializer(instance=doctor, many=pk is None)
-        return Response(doctor_serializer.data)
+class PatientAPIView(PersonAPIView):
+    serializer = PatientSerializer
+    model = Patient
 
-    def post(self, request: Request) -> Response:
-        serialized_data = DoctorSerializer(data=request.data)
-        if serialized_data.is_valid(raise_exception=True):
-            serialized_data.save()
-        return Response(request.data)
 
-    def put(self, request: Request) -> Response:
-        """TODO: Develop this method"""
-        if True:
-            raise NotFound(detail='DB doesn`t have this item')
-        return Response(request.data)
+class DoctorAPIView(PersonAPIView):
+    serializer = DoctorSerializer
+    model = Doctor
