@@ -1,54 +1,48 @@
-from typing import Union, Type
+from typing import Union
 
-from rest_framework.exceptions import NotFound
-from rest_framework.generics import get_object_or_404
-from rest_framework.response import Response
-from rest_framework.request import Request
-from rest_framework.views import APIView
 from rest_framework import permissions
+from rest_framework.generics import GenericAPIView
+from rest_framework.mixins import RetrieveModelMixin, ListModelMixin, CreateModelMixin
+from rest_framework.request import Request
 
 from .models import Patient, Doctor
 from .serializers import PatientSerializer, DoctorSerializer
 
 
-class PersonAPIView(APIView):
-    permission_classes = permissions.IsAuthenticated,
-    serializer: Type[Union[PatientSerializer, DoctorSerializer]] = None
+class BaseGenericAPIView(RetrieveModelMixin,
+                         ListModelMixin,
+                         CreateModelMixin,
+                         GenericAPIView):
     model: Union[Patient, Doctor] = None
+    serializer_class: Union[PatientSerializer, DoctorSerializer] = None
+    lookup_field = 'pk'
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
-    def get(self, request: Request, pk: int = None) -> Response:
-        person_name = request.GET.get('name')
-        if pk is not None:
-            person = get_object_or_404(self.model, pk=pk)
-        elif person_name:
-            """
-            Можно было использовать icontains, но с SQLite работает non-ASCII в sensitive всегда
-            https://docs.djangoproject.com/en/4.0/ref/databases/#sqlite-string-matching
-            """
-            person = self.model.objects.filter(name=person_name)
-        else:
-            person = self.model.objects.all()
-        person_serializer = self.serializer(instance=person, many=pk is None)
-        return Response(person_serializer.data)
+    def get(self, request: Request, *args, **kwargs):
+        person_id = kwargs.get('pk')
+        person_name = request.query_params.get('name')
+        if person_id is not None:
+            return self.retrieve(request, *args, **kwargs)
+        if person_name is not None:
+            self.queryset = self.model.objects.filter(name=person_name)
+        return self.list(request, *args, **kwargs)
 
-    def post(self, request: Request) -> Response:
-        serialized_data = self.serializer(data=request.data)
-        if serialized_data.is_valid(raise_exception=True):
-            serialized_data.save()
-        return Response(request.data)
+    def post(self, request: Request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
 
-    def put(self, request: Request) -> Response:
-        """TODO: Develop this method"""
-        if True:
-            raise NotFound(detail='DB doesn`t have this item')
-        return Response(request.data)
+    def get_queryset(self):
+        if self.queryset is not None:
+            return self.queryset
+        if self.model is not None:
+            return self.model.objects.all()
+        return self.queryset
 
 
-class PatientAPIView(PersonAPIView):
-    serializer = PatientSerializer
+class PatientGenericAPIView(BaseGenericAPIView):
     model = Patient
+    serializer_class = PatientSerializer
 
 
-class DoctorAPIView(PersonAPIView):
-    serializer = DoctorSerializer
+class DoctorGenericAPIView(BaseGenericAPIView):
     model = Doctor
+    serializer_class = DoctorSerializer
